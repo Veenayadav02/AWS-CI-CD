@@ -1,0 +1,46 @@
+version: 0.2
+
+phases:
+
+  pre_build:
+    commands:
+
+      - echo Logging into Amazon ECR
+
+      - IMAGE_TAG=$CODEBUILD_BUILD_NUMBER
+
+      - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPO_URI
+
+  build:
+    commands:
+
+      - echo Building Docker image
+
+      - docker build -t static-app .
+
+      - docker tag static-app:latest $ECR_REPO_URI:$IMAGE_TAG
+
+  post_build:
+    commands:
+
+      - echo Pushing Docker image
+
+      - docker push $ECR_REPO_URI:$IMAGE_TAG
+
+      - echo Updating deployment manifest
+
+      - sed -i "s|IMAGE_PLACEHOLDER|$ECR_REPO_URI:$IMAGE_TAG|g" deployment.yaml
+
+      - echo Updating kubeconfig
+
+      - aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER_NAME
+
+      - echo Deploying to EKS
+
+      - kubectl apply -f deployment.yaml
+
+      - kubectl apply -f service.yaml
+
+artifacts:
+  files:
+    - '**/*'
