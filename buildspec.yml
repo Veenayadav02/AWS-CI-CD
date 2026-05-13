@@ -5,7 +5,7 @@ phases:
   pre_build:
     commands:
 
-      - echo Logging into Amazon ECR
+      - echo Logging into ECR
 
       - IMAGE_TAG=$CODEBUILD_BUILD_NUMBER
 
@@ -16,9 +16,9 @@ phases:
 
       - echo Building Docker image
 
-      - docker build -t static-app .
+      - docker build -t frontend-app .
 
-      - docker tag static-app:latest $ECR_REPO_URI:$IMAGE_TAG
+      - docker tag frontend-app:latest $ECR_REPO_URI:$IMAGE_TAG
 
   post_build:
     commands:
@@ -27,20 +27,10 @@ phases:
 
       - docker push $ECR_REPO_URI:$IMAGE_TAG
 
-      - echo Updating deployment manifest
-
-      - sed -i "s|IMAGE_PLACEHOLDER|$ECR_REPO_URI:$IMAGE_TAG|g" deployment.yaml
-
-      - echo Updating kubeconfig
-
-      - aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER_NAME
-
-      - echo Deploying to EKS
-
-      - kubectl apply -f deployment.yaml --validate=false
-
-      - kubectl apply -f service.yaml --validate=false
+      - printf '{"ImageURI":"%s"}' $ECR_REPO_URI:$IMAGE_TAG > imageDetail.json
 
 artifacts:
   files:
-    - '**/*'
+    - imageDetail.json
+    - deployment.yaml
+    - service.yaml
